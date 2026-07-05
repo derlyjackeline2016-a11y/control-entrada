@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Placas</title>
+<style>
+  :root{
+    --bg:#0f1419; --card:#1a2128; --accent:#3b82f6; --accent2:#10b981;
+    --danger:#ef4444; --warn:#f59e0b; --text:#e8edf2; --muted:#8b98a5; --border:#2a333d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:linear-gradient(160deg,#0f1419,#161d24); color:var(--text); min-height:100vh;
+    padding:20px;
+  }
+  .wrap{max-width:560px;margin:0 auto;}
+  h1{font-size:1.4rem;margin:0 0 4px;text-align:center;}
+  .sub{color:var(--muted);text-align:center;font-size:0.85rem;margin-bottom:20px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;}
+  .input-row{display:flex;gap:8px;}
+  input[type=text]{
+    flex:1;background:#0f1419;border:1px solid var(--border);color:var(--text);
+    padding:14px;border-radius:10px;font-size:1.1rem;text-transform:uppercase;letter-spacing:1px;
+  }
+  input[type=text]:focus{outline:none;border-color:var(--accent);}
+  button{
+    border:none;border-radius:10px;padding:14px 16px;font-size:1rem;cursor:pointer;
+    font-weight:600;transition:transform .1s, opacity .2s;
+  }
+  button:active{transform:scale(0.96);}
+  .btn-check{background:var(--accent2);color:white;width:100%;margin-top:10px;}
+  .btn-check:disabled{opacity:.4;cursor:not-allowed;}
+  .result{margin-top:14px;padding:14px;border-radius:10px;font-size:1rem;display:none;}
+  .result.show{display:block;}
+  .result.ok{background:rgba(16,185,129,.12);border:1px solid var(--accent2);color:#6ee7b7;}
+  .result.fail{background:rgba(239,68,68,.12);border:1px solid var(--danger);color:#fca5a5;}
+  .result.suggest{background:rgba(245,158,11,.12);border:1px solid var(--warn);color:#fcd34d;}
+  .confirm-box{margin-top:12px;display:none;gap:6px;flex-wrap:wrap;}
+  .confirm-box.show{display:flex;}
+  .confirm-box button{flex:1;min-width:120px;font-size:0.83rem;padding:10px 8px;}
+  .btn-perm{background:var(--accent2);color:white;}
+  .btn-visit{background:var(--warn);color:#1a1a1a;}
+  .btn-no{background:#374151;color:var(--text);}
+  .stats{display:flex;justify-content:space-between;color:var(--muted);font-size:0.85rem;padding:0 4px;margin-bottom:6px;}
+  .log{max-height:240px;overflow-y:auto;}
+  .log-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 6px;border-bottom:1px solid var(--border);font-size:0.95rem;
+  }
+  .log-item:last-child{border-bottom:none;}
+  .log-plate{font-weight:600;letter-spacing:1px;}
+  .tag{font-size:0.7rem;padding:2px 8px;border-radius:20px;}
+  .tag.found{background:rgba(16,185,129,.15);color:#6ee7b7;}
+  .tag.added{background:rgba(59,130,246,.15);color:#93c5fd;}
+  .tag.visit{background:rgba(245,158,11,.15);color:#fcd34d;}
+  .empty{color:var(--muted);text-align:center;padding:20px;font-size:0.9rem;}
+  .actions-row{display:flex;gap:8px;margin-top:10px;}
+  .actions-row button{flex:1;background:#262f38;color:var(--muted);font-size:0.85rem;padding:10px;}
+  details summary{cursor:pointer;color:var(--muted);font-size:0.85rem;margin-top:4px;}
+  .log-item:hover .log-actions{opacity:1;}
+  .log-actions{opacity:0;transition:opacity .2s;display:flex;gap:4px;margin-top:4px;}
+  .log-actions button{font-size:0.72rem;padding:3px 8px;border-radius:6px;background:#262f38;color:var(--muted);border:1px solid var(--border);}
+  .log-actions button:hover{color:var(--text);}
+  .log-actions .btn-del:hover{color:#fca5a5;border-color:var(--danger);}
+  .log-actions .btn-edit:hover{color:#fcd34d;border-color:var(--warn);}
+
+  /* Modal de edición */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999;display:none;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:400px;margin:16px;}
+  .modal h3{margin:0 0 14px;font-size:1rem;}
+  .modal label{font-size:0.82rem;color:var(--muted);display:block;margin-bottom:4px;margin-top:10px;}
+  .modal input,.modal select{width:100%;background:#0f1419;border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:0.9rem;}
+  .modal input:focus,.modal select:focus{outline:none;border-color:var(--accent);}
+  .modal .fecha-fija{font-size:0.82rem;color:var(--muted);padding:8px 0;}
+  .modal-btns{display:flex;gap:8px;margin-top:16px;}
+  .modal-btns button{flex:1;padding:10px;}
+  .btn-save{background:var(--accent2);color:white;}
+  .btn-cancel-modal{background:#374151;color:var(--text);}
+  .btn-toggle{flex:1;background:#262f38;color:var(--muted);font-size:0.9rem;padding:10px;border:1px solid var(--border);}
+  .btn-toggle.active.entrada{background:rgba(16,185,129,.15);color:#6ee7b7;border-color:var(--accent2);}
+  .btn-toggle.active.salida{background:rgba(239,68,68,.15);color:#fca5a5;border-color:var(--danger);}
+  .tag.entrada{background:rgba(16,185,129,.15);color:#6ee7b7;}
+  .tag.salida{background:rgba(239,68,68,.15);color:#fca5a5;}
+
+  /* Cámara / OCR / Foto */
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-camera{background:#262f38;color:var(--accent);white-space:nowrap;flex:0 0 auto;}
+  .cam-hint{color:var(--muted);font-size:0.72rem;margin-top:6px;text-align:center;}
+  #cameraVideo,#cameraCanvas{width:100%;max-height:340px;object-fit:cover;border-radius:10px;background:#000;display:block;}
+  .ocr-status{font-size:0.8rem;color:var(--muted);margin-top:10px;min-height:18px;text-align:center;}
+  .pending-photo{display:none;align-items:center;gap:10px;margin-top:10px;background:#0f1419;border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
+  .pending-photo.show{display:flex;}
+  .pending-photo img{width:48px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+  .pending-photo span{flex:1;font-size:0.78rem;color:var(--muted);}
+  .btn-remove-photo{background:#262f38;color:#fca5a5;font-size:0.72rem;padding:6px 8px;border-radius:6px;border:1px solid var(--border);}
+  .log-thumb{width:44px;height:32px;object-fit:cover;border-radius:6px;margin-top:5px;cursor:pointer;border:1px solid var(--border);display:block;}
+  .edit-photo-row{display:none;align-items:center;gap:10px;margin-top:4px;}
+  .edit-photo-row img{width:60px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚗 Control de Acceso Vehicular</h1>
+  <div class="sub">Verifica o agrega placas manualmente</div>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="text" id="plateInput" placeholder="Ej: ABH77H" maxlength="8" autocomplete="off">
+      <button type="button" class="btn-camera" id="btnOpenCamera">📷 Escanear</button>
+    </div>
+    <div class="cam-hint">Toca "Escanear" para leer la placa con la cámara o tomar una foto de registro</div>
+    <input type="text" id="descInput" placeholder="Descripción (opcional): conductor, empresa, motivo..." style="margin-top:10px;text-transform:none;letter-spacing:normal;font-size:0.95rem;">
+    <div class="pending-photo" id="pendingPhotoPreview">
+      <img id="pendingPhotoThumb" alt="Foto adjunta">
+      <span>📎 Foto lista para adjuntar al próximo registro</span>
+      <button type="button" class="btn-remove-photo" id="btnRemovePendingPhoto">Quitar</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button type="button" id="btnEntrada" class="btn-toggle active">⬆️ Entrada</button>
+      <button type="button" id="btnSalida" class="btn-toggle">⬇️ Salida</button>
+    </div>
+    <button class="btn-check" id="checkBtn">Verificar placa</button>
+
+    <div class="result" id="resultBox"></div>
+    <div class="confirm-box" id="confirmBox">
+      <button class="btn-perm" id="btnAddYes">✅ Agregar permanente</button>
+      <button class="btn-visit" id="btnVisit">👤 Solo visita</button>
+      <button class="btn-no" id="btnAddNo">🚫 No registrar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <span>Total placas: <b id="totalCount">0</b></span>
+      <span id="addedCount"></span>
+    </div>
+    <details>
+      <summary>Ver historial reciente</summary>
+      <div class="log" id="logList"></div>
+    </details>
+    <div class="actions-row">
+      <button id="exportBtn">⬇️ Exportar lista (.txt)</button>
+      <button id="exportLogBtn">⬇️ Exportar historial (.csv)</button>
+    </div>
+    <div class="actions-row" style="margin-top:6px;">
+      <button id="clearLogBtn" style="color:#fca5a5;border-color:rgba(239,68,68,.3);">🗑️ Borrar historial</button>
+      <button id="resetBtn">↺ Restaurar lista original</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal edición de registro -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ Editar registro</h3>
+    <label>Placa</label>
+    <input type="text" id="editPlate" maxlength="8">
+    <label>Fecha y hora <span style="color:var(--warn);font-size:0.75rem;">(no modificable — se conserva la original)</span></label>
+    <div class="fecha-fija" id="editFecha"></div>
+    <label>Movimiento</label>
+    <select id="editMov">
+      <option value="entrada">⬆️ Entrada</option>
+      <option value="salida">⬇️ Salida</option>
+    </select>
+    <label>Estado</label>
+    <select id="editType">
+      <option value="found">Registrada</option>
+      <option value="visit">Visita</option>
+      <option value="added">Agregada (permanente)</option>
+    </select>
+    <label>Descripción</label>
+    <input type="text" id="editDesc" placeholder="Opcional...">
+    <label>Foto</label>
+    <div class="edit-photo-row" id="editPhotoWrap">
+      <img id="editPhotoThumb" alt="Foto del registro">
+      <button type="button" class="btn-remove-photo" id="btnRemoveEditPhoto">🗑️ Quitar foto</button>
+    </div>
+    <div id="editPhotoNone" style="font-size:0.78rem;color:var(--muted);margin-top:4px;">Sin foto adjunta</div>
+    <div class="modal-btns">
+      <button class="btn-save" id="btnSaveEdit">Guardar cambios</button>
+      <button class="btn-cancel-modal" id="btnCancelEdit">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de cámara: escáner de placa + registro fotográfico -->
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal" style="max-width:460px;">
+    <h3>📷 Escáner de placa / Registro fotográfico</h3>
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="cameraCanvas" style="display:none;"></canvas>
+    <div class="ocr-status" id="ocrStatus"></div>
+    <div class="modal-btns" id="cameraBtnsLive">
+      <button class="btn-save" id="btnCapture">📸 Capturar</button>
+      <button class="btn-cancel-modal" id="btnCancelCamera">Cancelar</button>
+    </div>
+    <div class="modal-btns" id="cameraBtnsCaptured" style="display:none;">
+      <button class="btn-save" id="btnOcr">🔍 Leer placa</button>
+      <button class="btn-toggle" id="btnUsePhotoOnly">📎 Solo foto</button>
+      <button class="btn-cancel-modal" id="btnRetake">🔁 Repetir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox para ver el registro fotográfico en tamaño completo -->
+<div class="modal-overlay" id="photoLightbox">
+  <div class="modal" style="max-width:92vw;padding:10px;">
+    <img id="lightboxImg" alt="Registro fotográfico" style="width:100%;border-radius:10px;display:block;max-height:80vh;object-fit:contain;">
+    <div class="modal-btns">
+      <button class="btn-cancel-modal" id="btnCloseLightbox">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- Base de datos original (149 placas) ----------
+const ORIGINAL_PLATES = `ABH77H BBM711 BHS566 BLS766 BOV146 BXX349 BYT209 CVD836 CVD838 CYB452
+DAI825 DBZ907 DDD075 DDM513 DOL036 DOM440 DWQ946 EF175F EFL609 EIW874 EJL200 EMM681 EMU74G ENJ479 EQI30G
+FKB12G FNQ119 FOZ450 FYN110 FZT419 GEZ64F GLL710 GLO124 GLW860 GUU476 HBL820 HCK366 HCT315 HIS346 HIX775 HKN066
+IHW640 IJW229 IMS828 INL069 IOZ585 IOZ703 IXP242 IXZ472 JBL483 JCS950 JDS649 JGV282 JLZ983 JMR832 JN0098 JRL726 JSW619 JUM969 JVR195 JWR956 JWY709
+KFT727 KIN073 KJH668 KKWO6G KQZ531 KWO351 KWR192 KWS486 KWV086 KXL601 KYS932 KYU701
+LDY20F LMY030 LNK857 LNV287 LOM011 LOW827 LPK156 LXZ817 LZT553 MAY198 MCR960 MPR103
+NAP437 NBV019 NDK604 NDQ957 NDW173 NDX638 NET402 NI0756 NIS251 NIV464 NJM046 NJR235 NJV614 NJW446 NLD83G NLS858 NSU691 NSU987 NUS297 NZP182
+OAX85G OEY73E OOZ929 PBU292 PCM127 PDZ104 PGS914 PSX801 PUL504 PXU396 PXX790 PYD399 PYN456 PYO117 PYP195 PYQ399
+QES461 QIL324 RAB968 RAV968 RBW07G RBY657 RDQ841 RGN888 RGW149 RHS566 RKL816 ROL676 RZF953
+TOF82D UET533 UGV132 URU669 USS975 UTL802 UTP964 UUK348 UUQ250 UUQ84C YZK90E ZBU75E ZYS842 ZZT334`
+  .split(/\s+/).filter(Boolean);
+
+const STORAGE_KEY = 'placas_db_v1';
+const LOG_KEY = 'placas_log_v1';
+
+function loadPlates(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw) return JSON.parse(raw);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ORIGINAL_PLATES));
+  return [...ORIGINAL_PLATES];
+}
+function savePlates(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+function loadLog(){ return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }
+function saveLog(log){ localStorage.setItem(LOG_KEY, JSON.stringify(log)); }
+
+let plates = loadPlates();
+let log = loadLog();
+
+// Confusiones fonéticas/visuales frecuentes entre letras y números parecidos (para sugerir placas similares)
+const CONFUSION_GROUPS = [
+  ['B','V','D','P'], ['M','N'], ['I','Y','E'], ['S','F','X','Z','C'],
+  ['0','O'], ['1','I'], ['2','Z'], ['5','S'], ['8','B'], ['G','J'], ['T','D']
+];
+
+function cleanManualInput(text){
+  return text.toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+
+// Distancia de edición simple (Levenshtein) considerando confusiones como costo menor
+function charSimilar(a,b){
+  if(a===b) return true;
+  return CONFUSION_GROUPS.some(g => g.includes(a) && g.includes(b));
+}
+function smartDistance(a,b){
+  const m=a.length, n=b.length;
+  const dp = Array.from({length:m+1},()=>new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) dp[i][0]=i;
+  for(let j=0;j<=n;j++) dp[0][j]=j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      const cost = charSimilar(a[i-1],b[j-1]) ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i-1][j]+1,
+        dp[i][j-1]+1,
+        dp[i-1][j-1]+cost
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+function findClosest(plate){
+  let best=null, bestDist=Infinity;
+  for(const p of plates){
+    const d = smartDistance(plate,p);
+    if(d < bestDist){ bestDist=d; best=p; }
+  }
+  if(best && bestDist <= 2 && bestDist>0) return {plate:best, dist:bestDist};
+  return null;
+}
+
+// ---------- UI ----------
+const plateInput = document.getElementById('plateInput');
+const descInput = document.getElementById('descInput');
+const checkBtn = document.getElementById('checkBtn');
+const resultBox = document.getElementById('resultBox');
+const confirmBox = document.getElementById('confirmBox');
+const btnAddYes = document.getElementById('btnAddYes');
+const btnAddNo = document.getElementById('btnAddNo');
+const totalCount = document.getElementById('totalCount');
+const addedCount = document.getElementById('addedCount');
+const logList = document.getElementById('logList');
+
+let pendingPlate = null;
+let movimiento = 'entrada'; // 'entrada' | 'salida'
+
+const btnEntrada = document.getElementById('btnEntrada');
+const btnSalida  = document.getElementById('btnSalida');
+
+function setMovimiento(m){
+  movimiento = m;
+  btnEntrada.className = 'btn-toggle' + (m==='entrada' ? ' active entrada' : '');
+  btnSalida.className  = 'btn-toggle' + (m==='salida'  ? ' active salida'  : '');
+}
+setMovimiento('entrada');
+btnEntrada.addEventListener('click', ()=> setMovimiento('entrada'));
+btnSalida.addEventListener('click',  ()=> setMovimiento('salida'));
+
+function refreshStats(){
+  totalCount.textContent = plates.length;
+  const added = plates.length - ORIGINAL_PLATES.length;
+  addedCount.textContent = added > 0 ? `(+${added} agregadas)` : '';
+}
+
+function renderLog(){
+  if(log.length===0){
+    logList.innerHTML = '<div class="empty">Sin actividad reciente</div>';
+    return;
+  }
+  logList.innerHTML = log.map((item, idx) => {
+    const mov = item.mov || 'entrada';
+    const movLabel = mov === 'entrada' ? '⬆️ Entrada' : '⬇️ Salida';
+    const regLabel = item.type === 'found' ? 'Registrada' : item.type === 'added' ? 'Agregada' : 'Visita';
+    return `
+    <div class="log-item">
+      <div style="display:flex;flex-direction:column;flex:1;">
+        <span class="log-plate">${item.plate}</span>
+        ${item.desc ? `<span style="color:var(--muted);font-size:0.78rem;margin-top:2px;">${item.desc}</span>` : ''}
+        ${item.photo ? `<img src="${item.photo}" class="log-thumb" onclick="viewPhotoByIndex(${idx})" alt="Foto del registro">` : ''}
+        <div class="log-actions">
+          <button class="btn-edit" onclick="openEdit(${idx})">✏️ Editar</button>
+          <button class="btn-del" onclick="deleteEntry(${idx})">🗑️ Eliminar</button>
+        </div>
+      </div>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+        <span style="display:flex;gap:4px;">
+          <span class="tag ${mov}">${movLabel}</span>
+          <span class="tag ${item.type}">${regLabel}</span>
+        </span>
+        <span style="color:var(--muted);font-size:0.72rem;">${item.fecha} · ${item.hora}</span>
+      </span>
+    </div>
+  `}).join('');
+}
+
+function addLog(plate, type, desc){
+  const now = new Date();
+  const fecha = now.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const hora = now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const photo = consumePendingPhoto();
+  log.unshift({plate, type, desc: desc || '', mov: movimiento, fecha, hora, iso: now.toISOString(), photo});
+  try{
+    saveLog(log);
+  }catch(err){
+    // Si el almacenamiento se llena por las fotos, se quita la foto más antigua y se reintenta.
+    let freed = false;
+    for(let i=log.length-1;i>=0;i--){
+      if(log[i].photo){ log[i].photo = null; freed = true; break; }
+    }
+    if(freed){
+      try{ saveLog(log); }catch(err2){ alert('No se pudo guardar el registro: almacenamiento lleno.'); }
+    }
+  }
+  renderLog();
+}
+
+function showResult(html, cls){
+  resultBox.className = `result show ${cls}`;
+  resultBox.innerHTML = html;
+}
+function hideConfirm(){ confirmBox.classList.remove('show'); pendingPlate=null; }
+
+function checkPlate(){
+  const raw = plateInput.value;
+  const plate = cleanManualInput(raw);
+  hideConfirm();
+  if(!plate){ showResult('Escribe una placa primero.', 'fail'); return; }
+
+  // Revisar apariciones previas en el historial
+  const historial = log.filter(item => item.plate === plate);
+  let historialHtml = '';
+  if(historial.length > 0){
+    const filas = historial.slice(0,5).map(item => {
+      const mov = (item.mov||'entrada') === 'entrada' ? '⬆️ Entrada' : '⬇️ Salida';
+      const tipo = item.type === 'found' ? 'Registrada' : item.type === 'added' ? 'Agregada' : 'Visita';
+      const desc = item.desc ? ` · <i>${item.desc}</i>` : '';
+      return `<tr>
+        <td style="padding:3px 6px;">${item.fecha} ${item.hora}</td>
+        <td style="padding:3px 6px;">${mov}</td>
+        <td style="padding:3px 6px;">${tipo}${desc}</td>
+      </tr>`;
+    }).join('');
+    historialHtml = `
+      <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;">
+        <span style="font-size:0.78rem;color:var(--warn);">📋 Ya aparece <b>${historial.length}</b> vez(ces) en el historial:</span>
+        <table style="width:100%;font-size:0.75rem;margin-top:6px;border-collapse:collapse;color:var(--muted);">
+          <thead><tr style="color:var(--text);">
+            <th style="text-align:left;padding:3px 6px;">Fecha / Hora</th>
+            <th style="text-align:left;padding:3px 6px;">Movimiento</th>
+            <th style="text-align:left;padding:3px 6px;">Estado</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+        ${historial.length > 5 ? `<span style="font-size:0.72rem;color:var(--muted);">... y ${historial.length-5} registro(s) más.</span>` : ''}
+      </div>`;
+  }
+
+  if(plates.includes(plate)){
+    showResult(`✅ <b>${plate}</b> está registrada. Acceso autorizado.${historialHtml}`, 'ok');
+    addLog(plate, 'found', descInput.value.trim());
+    descInput.value = '';
+    return;
+  }
+
+  const closest = findClosest(plate);
+  if(closest){
+    showResult(`⚠️ <b>${plate}</b> no existe exactamente. ¿Quisiste decir <b>${closest.plate}</b>? (similitud detectada)
+      <br><br>Si la placa es correcta y nueva, puedes elegir una opción abajo.${historialHtml}`, 'suggest');
+  } else {
+    showResult(`❌ <b>${plate}</b> no está registrada.${historialHtml}`, 'fail');
+  }
+  pendingPlate = plate;
+  confirmBox.classList.add('show');
+}
+
+btnAddYes.addEventListener('click', ()=>{
+  if(!pendingPlate) return;
+  plates.push(pendingPlate);
+  savePlates(plates);
+  refreshStats();
+  showResult(`✅ <b>${pendingPlate}</b> agregada permanentemente. Acceso autorizado.`, 'ok');
+  addLog(pendingPlate, 'added', descInput.value.trim());
+  descInput.value = '';
+  hideConfirm();
+});
+
+document.getElementById('btnVisit').addEventListener('click', ()=>{
+  if(!pendingPlate) return;
+  showResult(`👤 <b>${pendingPlate}</b> registrada como visita. Acceso puntual autorizado.`, 'suggest');
+  addLog(pendingPlate, 'visit', descInput.value.trim());
+  descInput.value = '';
+  hideConfirm();
+});
+
+btnAddNo.addEventListener('click', ()=>{
+  showResult(`🚫 <b>${pendingPlate}</b> no fue registrada. Acceso no autorizado.`, 'fail');
+  hideConfirm();
+});
+
+checkBtn.addEventListener('click', checkPlate);
+plateInput.addEventListener('keydown', e=>{ if(e.key==='Enter') checkPlate(); });
+plateInput.addEventListener('input', ()=>{ plateInput.value = plateInput.value.toUpperCase(); });
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const blob = new Blob([plates.sort().join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'placas_actualizadas.txt'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('exportLogBtn').addEventListener('click', ()=>{
+  if(log.length===0){ alert('No hay historial para exportar todavía.'); return; }
+  const header = 'Fecha,Hora,Placa,Movimiento,Estado,Descripcion\n';
+  const rows = log.map(item => {
+    const mov = (item.mov || 'entrada') === 'entrada' ? 'Entrada' : 'Salida';
+    const estado = item.type==='found' ? 'Registrada' : item.type==='added' ? 'Agregada (permanente)' : 'Visita';
+    const desc = (item.desc || '').replace(/"/g,'""');
+    return `${item.fecha},${item.hora},${item.plate},${mov},${estado},"${desc}"`;
+  }).join('\n');
+  const csv = '\uFEFF' + header + rows; // BOM para que Excel reconozca acentos/UTF-8
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `historial_placas_${stamp}.csv`; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(confirm('¿Restaurar la lista original de 149 placas? Se perderán las placas agregadas manualmente.')){
+    plates = [...ORIGINAL_PLATES];
+    savePlates(plates);
+    log = [];
+    saveLog(log);
+    refreshStats();
+    renderLog();
+    showResult('Lista restaurada al estado original.', 'ok');
+  }
+});
+
+document.getElementById('clearLogBtn').addEventListener('click', ()=>{
+  if(log.length === 0){
+    alert('El historial ya está vacío.');
+    return;
+  }
+  const totalEntradas = log.length;
+  const confirmar = confirm(
+    `¿Borrar el historial completo?\n\n` +
+    `• Se eliminarán ${totalEntradas} registro(s).\n` +
+    `• Las placas guardadas (permanentes y de la lista base) NO se verán afectadas.\n\n` +
+    `Esta acción no se puede deshacer. Se recomienda exportar el historial antes de borrarlo.`
+  );
+  if(confirmar){
+    log = [];
+    saveLog(log);
+    renderLog();
+    showResult('Historial borrado. La lista de placas permanece intacta.', 'ok');
+  }
+});
+
+
+// ---------- Eliminar / Editar registros del historial ----------
+let editIdx = null;
+
+function deleteEntry(idx){
+  const item = log[idx];
+  if(!confirm(`¿Eliminar este registro del historial?\n\nPlaca: ${item.plate}\nFecha: ${item.fecha} · ${item.hora}\n\nLas placas guardadas no se verán afectadas.`)) return;
+  log.splice(idx, 1);
+  saveLog(log);
+  renderLog();
+}
+
+function openEdit(idx){
+  editIdx = idx;
+  removeEditPhotoFlag = false;
+  const item = log[idx];
+  document.getElementById('editPlate').value = item.plate;
+  document.getElementById('editFecha').textContent = `${item.fecha}  ·  ${item.hora}`;
+  document.getElementById('editMov').value = item.mov || 'entrada';
+  document.getElementById('editType').value = item.type || 'found';
+  document.getElementById('editDesc').value = item.desc || '';
+  document.getElementById('editPlate').style.textTransform = 'uppercase';
+  document.getElementById('editPhotoNone').textContent = 'Sin foto adjunta';
+  if(item.photo){
+    document.getElementById('editPhotoThumb').src = item.photo;
+    document.getElementById('editPhotoWrap').style.display = 'flex';
+    document.getElementById('editPhotoNone').style.display = 'none';
+  } else {
+    document.getElementById('editPhotoWrap').style.display = 'none';
+    document.getElementById('editPhotoNone').style.display = 'block';
+  }
+  document.getElementById('editModal').classList.add('show');
+}
+
+document.getElementById('btnSaveEdit').addEventListener('click', ()=>{
+  if(editIdx === null) return;
+  const newPlate = document.getElementById('editPlate').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!newPlate){ alert('La placa no puede quedar vacía.'); return; }
+  // Conservar fecha y hora originales
+  log[editIdx] = {
+    ...log[editIdx],
+    plate: newPlate,
+    mov:   document.getElementById('editMov').value,
+    type:  document.getElementById('editType').value,
+    desc:  document.getElementById('editDesc').value.trim(),
+    photo: removeEditPhotoFlag ? null : log[editIdx].photo,
+  };
+  saveLog(log);
+  renderLog();
+  document.getElementById('editModal').classList.remove('show');
+  editIdx = null;
+});
+
+document.getElementById('btnCancelEdit').addEventListener('click', ()=>{
+  document.getElementById('editModal').classList.remove('show');
+  editIdx = null;
+});
+
+// Cerrar modal al tocar fuera
+document.getElementById('editModal').addEventListener('click', (e)=>{
+  if(e.target === document.getElementById('editModal')){
+    document.getElementById('editModal').classList.remove('show');
+    editIdx = null;
+  }
+});
+
+// ---------- Cámara: escáner de placa + registro fotográfico ----------
+let mediaStream = null;
+let pendingPhoto = null;
+let removeEditPhotoFlag = false;
+
+const cameraModal = document.getElementById('cameraModal');
+const cameraVideo = document.getElementById('cameraVideo');
+const cameraCanvas = document.getElementById('cameraCanvas');
+const ocrStatus = document.getElementById('ocrStatus');
+const btnsLive = document.getElementById('cameraBtnsLive');
+const btnsCaptured = document.getElementById('cameraBtnsCaptured');
+const pendingPhotoPreview = document.getElementById('pendingPhotoPreview');
+const pendingPhotoThumb = document.getElementById('pendingPhotoThumb');
+
+async function openCamera(){
+  cameraModal.classList.add('show');
+  ocrStatus.textContent = '';
+  cameraVideo.style.display = 'block';
+  cameraCanvas.style.display = 'none';
+  btnsLive.style.display = 'flex';
+  btnsCaptured.style.display = 'none';
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    cameraVideo.srcObject = mediaStream;
+  }catch(err){
+    ocrStatus.textContent = '⚠️ No se pudo acceder a la cámara. Verifica los permisos del navegador.';
+    btnsLive.style.display = 'none';
+  }
+}
+function stopCamera(){
+  if(mediaStream){
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+}
+function closeCamera(){
+  stopCamera();
+  cameraModal.classList.remove('show');
+}
+function capturePhoto(){
+  const w = cameraVideo.videoWidth || 640, h = cameraVideo.videoHeight || 480;
+  cameraCanvas.width = w;
+  cameraCanvas.height = h;
+  cameraCanvas.getContext('2d').drawImage(cameraVideo, 0, 0, w, h);
+  cameraVideo.style.display = 'none';
+  cameraCanvas.style.display = 'block';
+  btnsLive.style.display = 'none';
+  btnsCaptured.style.display = 'flex';
+  ocrStatus.textContent = '';
+}
+function retakePhoto(){
+  cameraVideo.style.display = 'block';
+  cameraCanvas.style.display = 'none';
+  btnsLive.style.display = 'flex';
+  btnsCaptured.style.display = 'none';
+  ocrStatus.textContent = '';
+}
+function setCapturedButtonsDisabled(disabled){
+  document.getElementById('btnOcr').disabled = disabled;
+  document.getElementById('btnUsePhotoOnly').disabled = disabled;
+  document.getElementById('btnRetake').disabled = disabled;
+}
+function compressPhotoFromCanvas(canvas, maxW=480, quality=0.6){
+  const scale = Math.min(1, maxW / canvas.width);
+  const w = Math.round(canvas.width * scale), h = Math.round(canvas.height * scale);
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  tmp.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  return tmp.toDataURL('image/jpeg', quality);
+}
+function updatePendingPhotoPreview(){
+  if(pendingPhoto){
+    pendingPhotoThumb.src = pendingPhoto;
+    pendingPhotoPreview.classList.add('show');
+  } else {
+    pendingPhotoPreview.classList.remove('show');
+  }
+}
+function consumePendingPhoto(){
+  const p = pendingPhoto;
+  pendingPhoto = null;
+  updatePendingPhotoPreview();
+  return p;
+}
+function loadTesseract(){
+  return new Promise((resolve, reject) => {
+    if(window.Tesseract){ resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('No se pudo cargar el motor OCR (revisa tu conexión a internet)'));
+    document.head.appendChild(s);
+  });
+}
+function extractPlateFromText(text){
+  const cleaned = (text || '').toUpperCase().replace(/[^A-Z0-9]/g, ' ');
+  const tokens = cleaned.split(/\s+/).filter(t => t.length >= 5 && t.length <= 8);
+  if(tokens.length === 0) return null;
+  tokens.sort((a, b) => Math.abs(a.length - 6) - Math.abs(b.length - 6));
+  return tokens[0];
+}
+async function runOcr(){
+  setCapturedButtonsDisabled(true);
+  ocrStatus.textContent = '⏳ Cargando motor OCR (solo la primera vez)...';
+  try{
+    await loadTesseract();
+    ocrStatus.textContent = '🔍 Analizando imagen...';
+    const { data } = await Tesseract.recognize(cameraCanvas, 'eng');
+    const candidate = extractPlateFromText(data.text || '');
+    pendingPhoto = compressPhotoFromCanvas(cameraCanvas);
+    updatePendingPhotoPreview();
+    if(candidate){
+      plateInput.value = candidate;
+      ocrStatus.textContent = `✅ Detectado: ${candidate} (verifica y corrige si hace falta)`;
+    } else {
+      ocrStatus.textContent = '⚠️ No se detectó una placa clara. Escríbela manualmente; la foto quedó adjunta.';
+    }
+    setTimeout(() => closeCamera(), 1300);
+  }catch(err){
+    ocrStatus.textContent = '⚠️ Error al leer la placa. Intenta de nuevo o usa "Solo foto".';
+    setCapturedButtonsDisabled(false);
+  }
+}
+function usePhotoOnly(){
+  pendingPhoto = compressPhotoFromCanvas(cameraCanvas);
+  updatePendingPhotoPreview();
+  closeCamera();
+}
+function viewPhotoByIndex(idx){
+  const item = log[idx];
+  if(!item || !item.photo) return;
+  document.getElementById('lightboxImg').src = item.photo;
+  document.getElementById('photoLightbox').classList.add('show');
+}
+
+document.getElementById('btnOpenCamera').addEventListener('click', openCamera);
+document.getElementById('btnCancelCamera').addEventListener('click', closeCamera);
+document.getElementById('btnCapture').addEventListener('click', capturePhoto);
+document.getElementById('btnRetake').addEventListener('click', retakePhoto);
+document.getElementById('btnOcr').addEventListener('click', runOcr);
+document.getElementById('btnUsePhotoOnly').addEventListener('click', usePhotoOnly);
+document.getElementById('btnRemovePendingPhoto').addEventListener('click', () => { pendingPhoto = null; updatePendingPhotoPreview(); });
+cameraModal.addEventListener('click', (e) => { if(e.target === cameraModal) closeCamera(); });
+document.getElementById('btnCloseLightbox').addEventListener('click', () => {
+  document.getElementById('photoLightbox').classList.remove('show');
+});
+document.getElementById('photoLightbox').addEventListener('click', (e) => {
+  if(e.target === document.getElementById('photoLightbox')) document.getElementById('photoLightbox').classList.remove('show');
+});
+document.getElementById('btnRemoveEditPhoto').addEventListener('click', () => {
+  removeEditPhotoFlag = true;
+  document.getElementById('editPhotoWrap').style.display = 'none';
+  document.getElementById('editPhotoNone').style.display = 'block';
+  document.getElementById('editPhotoNone').textContent = 'La foto se eliminará al guardar.';
+});
+
+// ---------- Inicio ----------
+refreshStats();
+renderLog();
+</script>
+</body>
+</html>
